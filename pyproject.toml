@@ -1,0 +1,4 @@
+[project]
+name = "faces"
+version = "0.0.1"
+dependencies = ["Flask", "SQLAlchemy", "Flask-SQLAlchemy"]

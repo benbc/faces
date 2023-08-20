@@ -1,0 +1,22 @@
+<!doctype html>
+<head>
+    <script src="/static/htmx.min.js"></script>
+
+    <title>Projects</title>
+</head>
+
+<body hx-boost="true">
+
+<ul>
+{% for project in projects %}
+    <li>{{ project.name }}</li>
+{% endfor %}
+</ul>
+
+<form>
+    <label for="name">Project name:</label>
+    <input type="text" name="name" required>
+    <button hx-put="/project" hx-target="body">create</button>
+</form>
+
+</body>

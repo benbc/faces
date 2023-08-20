@@ -1,0 +1,3 @@
+Try replacing Flask-SQLAlchemy with something explicit that only does what we need.
+Sanitize input (e.g. project names rendered raw)
+Consider specifying table structure explicitly rather than loading from metadata, to reduce the amount of shared state (woudl this mean that migrations could be generated from that spec?)
