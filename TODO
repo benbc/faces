@@ -1,2 +1,1 @@
 Sanitize input (e.g. project names rendered raw)
-Use table definitions in init_db()

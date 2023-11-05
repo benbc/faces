@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+set -e
+
+PYTHONPATH=src .venv/bin/python -m faces
