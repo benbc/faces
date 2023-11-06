@@ -10,6 +10,23 @@ from werkzeug.routing import Map, Rule
 from werkzeug.utils import redirect
 from werkzeug.wrappers import Request, Response
 
+class Project:
+    def __init__(self, name):
+        self.name = name
+
+
+class Faces:
+    def __init__(self):
+        self.database = Database()
+
+    def all_projects(self):
+        return self.database.all_projects()
+
+    def create_project(self, name):
+        p = Project(name)
+        self.database.save_project(p)
+
+
 meta_data = sqlalchemy.MetaData()
 
 @dataclass
@@ -18,16 +35,7 @@ class Tables:
                                 sqlalchemy.Column('name', sqlalchemy.Text))
 tables = Tables()
 
-class Project:
-    @classmethod
-    def create(cls, name):
-        return cls(name)
-
-    def __init__(self, name):
-        self.name = name
-
-
-class Faces:
+class Database:
     def __init__(self):
         self.engine = sqlalchemy.create_engine('sqlite+pysqlite:///faces.db', echo=True)
         with self.engine.connect() as c:
@@ -43,10 +51,9 @@ class Faces:
         projects = [Project(row.name) for row in result]
         return projects
 
-    def create_project(self, name):
-        p = Project.create(name)
+    def save_project(self, project):
         c = self.engine.connect()
-        c.execute(sqlalchemy.insert(tables.projects).values(name=p.name))
+        c.execute(sqlalchemy.insert(tables.projects).values(name=project.name))
         c.commit()
 
 
