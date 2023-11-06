@@ -17,14 +17,14 @@ class Project:
 
 class Faces:
     def __init__(self):
-        self.database = Database()
+        self._database = Database()
 
     def all_projects(self):
-        return self.database.all_projects()
+        return self._database.all_projects()
 
     def create_project(self, name):
         p = Project(name)
-        self.database.save_project(p)
+        self._database.save_project(p)
 
 
 meta_data = sqlalchemy.MetaData()
@@ -37,22 +37,22 @@ tables = Tables()
 
 class Database:
     def __init__(self):
-        self.engine = sqlalchemy.create_engine('sqlite+pysqlite:///faces.db', echo=True)
-        with self.engine.connect() as c:
+        self._engine = sqlalchemy.create_engine('sqlite+pysqlite:///faces.db', echo=True)
+        with self._engine.connect() as c:
             try:
                 c.execute(sqlalchemy.select(tables.projects.c.name))
             except sqlalchemy.exc.OperationalError:
-                meta_data.create_all(self.engine)
+                meta_data.create_all(self._engine)
                 c.execute(sqlalchemy.insert(tables.projects), [{"name": "foo"}, {"name": "bar"}])
                 c.commit()
 
     def all_projects(self):
-        result = self.engine.connect().execute(sqlalchemy.select(tables.projects.c.name))
+        result = self._engine.connect().execute(sqlalchemy.select(tables.projects.c.name))
         projects = [Project(row.name) for row in result]
         return projects
 
     def save_project(self, project):
-        c = self.engine.connect()
+        c = self._engine.connect()
         c.execute(sqlalchemy.insert(tables.projects).values(name=project.name))
         c.commit()
 
@@ -67,7 +67,7 @@ class Templates:
 
 class Web:
     def __init__(self):
-        self.faces = Faces()
+        self._faces = Faces()
         self._templates = Templates()
 
         self.url_map = Map([
@@ -76,12 +76,12 @@ class Web:
         ])
 
     def on_index(self, _request, _urls):
-        projects = self.faces.all_projects()
+        projects = self._faces.all_projects()
         return self._templates.render("projects", projects=projects)
 
     def on_create_project(self, request, urls):
         name = request.form['name']
-        self.faces.create_project(name)
+        self._faces.create_project(name)
         return redirect(urls.build('index'))
 
     def dispatch(self, request):
