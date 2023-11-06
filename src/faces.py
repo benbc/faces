@@ -56,31 +56,33 @@ class Database:
         c.execute(sqlalchemy.insert(tables.projects).values(name=project.name))
         c.commit()
 
+class Templates:
+    def __init__(self):
+        template_path = os.path.join(os.path.dirname(__file__), "templates")
+        self._environment = Environment(loader=FileSystemLoader(template_path), autoescape=True)
+
+    def render(self, template_name, **context):
+        t = self._environment.get_template(f"{template_name}.jinja")
+        return Response(t.render(context), mimetype="text/html")
 
 class Web:
     def __init__(self):
         self.faces = Faces()
-
-        template_path = os.path.join(os.path.dirname(__file__), "templates")
-        self.jinja_env = Environment(loader=FileSystemLoader(template_path), autoescape=True)
+        self._templates = Templates()
 
         self.url_map = Map([
-            Rule('/', endpoint='projects'),
+            Rule('/', endpoint='index'),
             Rule('/project', endpoint='create_project', methods=['PUT']),
         ])
 
-    def on_projects(self, _request):
+    def on_index(self, _request):
         projects = self.faces.all_projects()
-        return self.render_template("projects.jinja", projects=projects)
+        return self._templates.render("projects", projects=projects)
 
     def on_create_project(self, request):
         name = request.form['name']
         self.faces.create_project(name)
-        return redirect(self.url_map.bind_to_environ(request.environ).build('projects'))
-
-    def render_template(self, template_name, **context):
-        t = self.jinja_env.get_template(template_name)
-        return Response(t.render(context), mimetype="text/html")
+        return redirect(self.url_map.bind_to_environ(request.environ).build('index'))
 
     def dispatch_request(self, request):
         adapter = self.url_map.bind_to_environ(request.environ)
