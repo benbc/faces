@@ -1,1 +1,14 @@
+Application has no dependency on web (web holds an application)
+Application does have dependency on database
+WSGI app lives in web
+Application returns domain object(s) if necessary
+Flow logic (eg redirects) all lives in web
+Likely to start with one-to-one correspondence between methods on web and those on application
+
+Probably: thread storage for database connection/transaction
+
+Connection per request
+Auto-tx per request
+Connection pooling
+
 Sanitize input (e.g. project names rendered raw)

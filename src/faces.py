@@ -38,6 +38,22 @@ class Faces:
                 c.execute(sqlalchemy.insert(tables.projects), [{"name": "foo"}, {"name": "bar"}])
                 c.commit()
 
+    def all_projects(self):
+        result = self.engine.connect().execute(sqlalchemy.select(tables.projects.c.name))
+        projects = [Project(row.name) for row in result]
+        return projects
+
+    def create_project(self, name):
+        p = Project.create(name)
+        c = self.engine.connect()
+        c.execute(sqlalchemy.insert(tables.projects).values(name=p.name))
+        c.commit()
+
+
+class Web:
+    def __init__(self):
+        self.faces = Faces()
+
         template_path = os.path.join(os.path.dirname(__file__), "templates")
         self.jinja_env = Environment(loader=FileSystemLoader(template_path), autoescape=True)
 
@@ -47,16 +63,12 @@ class Faces:
         ])
 
     def on_projects(self, _request):
-        result = self.engine.connect().execute(sqlalchemy.select(tables.projects.c.name))
-        projects = [Project(row.name) for row in result]
+        projects = self.faces.all_projects()
         return self.render_template("projects.jinja", projects=projects)
 
     def on_create_project(self, request):
         name = request.form['name']
-        p = Project.create(name)
-        c = self.engine.connect()
-        c.execute(sqlalchemy.insert(tables.projects).values(name=p.name))
-        c.commit()
+        self.faces.create_project(name)
         return redirect(self.url_map.bind_to_environ(request.environ).build('projects'))
 
     def render_template(self, template_name, **context):
@@ -81,7 +93,7 @@ class Faces:
 
 
 def create_app():
-    app = Faces()
+    app = Web()
     app.wsgi_app = SharedDataMiddleware(
         app.wsgi_app, {"/static": os.path.join(os.path.dirname(__file__), "static")}
     )
