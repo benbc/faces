@@ -2,3 +2,6 @@
 name = "faces"
 version = "0.0.1"
 dependencies = ["Werkzeug", "SQLAlchemy", "Jinja2"]
+
+[project.optional-dependencies]
+test = ["Werkzeug[watchdog]"]

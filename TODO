@@ -1,5 +1,3 @@
-Something's making things slow. Maybe it's a combination of the stat/reloading and the egg info stuff being in src? Try getting rid of that and also watchdog reloader (Werkzeug[watchdog])
-
 Separate the WSGI-specific bits of Web from the general web logic (routing/redirects etc)
 
 Probably: thread storage for database connection/transaction
