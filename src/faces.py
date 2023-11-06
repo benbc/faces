@@ -1,6 +1,7 @@
 import os
 from contextvars import ContextVar
 from dataclasses import dataclass
+from typing import Callable
 
 import jinja2
 import sqlalchemy
@@ -39,7 +40,7 @@ class Database:
         self._context_var = ContextVar('connection')
 
         lifecycle.add_start_listener(self.initialize)
-        lifecycle.add_request_listener(success=self.commit)
+        lifecycle.add_request_listener(success=self.commit, failure=self.rollback)
 
     def initialize(self):
         try:
@@ -64,6 +65,9 @@ class Database:
 
     def commit(self):
         self._connection().commit()
+
+    def rollback(self):
+        self._connection().rollback()
 
     def _connection(self):
         c = self._context_var.get(None)
@@ -117,29 +121,44 @@ class WSGIApp:
         request = werkzeug.Request(environ)
         try:
             response = self._web.dispatch(request)
-            self._lifecycle.request_success()
         except werkzeug.exceptions.HTTPException as e:
+            self._lifecycle.request_failure()
             return e
+        except Exception:
+            self._lifecycle.request_failure()
+            raise
+        else:
+            self._lifecycle.request_success()
         return response(environ, start_response)
 
+@dataclass
+class RequestListener:
+    success: Callable
+    failure: Callable
+
 class Lifecycle:
+
     def __init__(self):
         self._start_listeners = []
-        self._request_success_listeners = []
+        self._request_listeners = []
 
     def add_start_listener(self, listener):
         self._start_listeners.append(listener)
 
-    def add_request_listener(self, success):
-        self._request_success_listeners.append(success)
+    def add_request_listener(self, success, failure):
+        self._request_listeners.append(RequestListener(success, failure))
 
     def start(self):
         for l in self._start_listeners:
             l()
 
     def request_success(self):
-        for l in self._request_success_listeners:
-            l()
+        for l in self._request_listeners:
+            l.success()
+
+    def request_failure(self):
+        for l in self._request_listeners:
+            l.failure()
 
 def create_app():
     lifecycle = Lifecycle()
