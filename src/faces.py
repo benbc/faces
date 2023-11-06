@@ -17,8 +17,8 @@ class Project:
         self.name = name
 
 class Faces:
-    def __init__(self):
-        self._database = Database()
+    def __init__(self, lifecycle):
+        self._database = Database(lifecycle)
 
     def all_projects(self):
         return self._database.all_projects()
@@ -34,10 +34,11 @@ class Tables:
 tables = Tables()
 
 class Database:
-    def __init__(self):
+    def __init__(self, lifecycle):
         self._engine = sqlalchemy.create_engine('sqlite+pysqlite:///faces.db', echo=True)
         self._context_var = ContextVar('connection')
-        self.initialize()
+
+        lifecycle.add_start_listener(self.initialize)
 
     def initialize(self):
         try:
@@ -84,8 +85,8 @@ class Templates:
         return werkzeug.Response(t.render(context), mimetype='text/html')
 
 class Web:
-    def __init__(self):
-        self._faces = Faces()
+    def __init__(self, lifecycle):
+        self._faces = Faces(lifecycle)
         self._templates = Templates()
 
         self.url_map = werkzeug.routing.Map([
@@ -108,8 +109,8 @@ class Web:
         return getattr(self, f'on_{endpoint}')(request, urls, **values)
 
 class WSGIApp:
-    def __init__(self):
-        self._web = Web()
+    def __init__(self, lifecycle):
+        self._web = Web(lifecycle)
 
     def __call__(self, environ, start_response):
         request = werkzeug.Request(environ)
@@ -119,8 +120,22 @@ class WSGIApp:
             return e
         return response(environ, start_response)
 
+class Lifecycle:
+    def __init__(self):
+        self._start_listeners = []
+
+    def add_start_listener(self, listener):
+        self._start_listeners.append(listener)
+
+    def start(self):
+        for l in self._start_listeners:
+            l()
+
 def create_app():
-    app = WSGIApp()
+    lifecycle = Lifecycle()
+    app = WSGIApp(lifecycle)
+    lifecycle.start()
+
     return werkzeug.middleware.shared_data.SharedDataMiddleware(
         app, {'/static': os.path.join(os.path.dirname(__file__), 'static')}
     )
