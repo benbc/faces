@@ -1,4 +1,1 @@
-Connection per request
-Auto-tx per request
-
 Sanitize input (e.g. project names rendered raw)

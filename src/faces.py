@@ -64,17 +64,28 @@ class Database:
         return self._connection().execute(statement, parameters)
 
     def commit(self):
-        self._connection().commit()
+        self._finalize_connection(lambda c: c.commit())
 
     def rollback(self):
-        self._connection().rollback()
+        self._finalize_connection(lambda c: c.rollback())
+
+    def _finalize_connection(self, operation):
+        c = self._maybe_connection()
+        if not c:
+            return
+        operation(c)
+        c.close()
+        self._context_var.set(None)
 
     def _connection(self):
-        c = self._context_var.get(None)
+        c = self._maybe_connection()
         if not c:
             c = self._engine.connect()
             self._context_var.set(c)
         return c
+
+    def _maybe_connection(self):
+        return self._context_var.get(None)
 
 class Templates:
     def __init__(self):
