@@ -43,7 +43,7 @@ class Database:
                 c.execute(sqlalchemy.select(tables.projects.c.name))
             except sqlalchemy.exc.OperationalError:
                 meta_data.create_all(self._engine)
-                c.execute(sqlalchemy.insert(tables.projects), [{"name": "foo"}, {"name": "bar"}])
+                c.execute(sqlalchemy.insert(tables.projects), [{'name': 'foo'}, {'name': 'bar'}])
                 c.commit()
 
     def all_projects(self):
@@ -58,12 +58,12 @@ class Database:
 
 class Templates:
     def __init__(self):
-        template_path = os.path.join(os.path.dirname(__file__), "templates")
+        template_path = os.path.join(os.path.dirname(__file__), 'templates')
         self._environment = Environment(loader=FileSystemLoader(template_path), autoescape=True)
 
     def render(self, template_name, **context):
-        t = self._environment.get_template(f"{template_name}.jinja")
-        return Response(t.render(context), mimetype="text/html")
+        t = self._environment.get_template(f'{template_name}.jinja')
+        return Response(t.render(context), mimetype='text/html')
 
 class Web:
     def __init__(self):
@@ -77,7 +77,7 @@ class Web:
 
     def on_index(self, _request, _urls):
         projects = self._faces.all_projects()
-        return self._templates.render("projects", projects=projects)
+        return self._templates.render('projects', projects=projects)
 
     def on_create_project(self, request, urls):
         name = request.form['name']
@@ -87,7 +87,7 @@ class Web:
     def dispatch(self, request):
         urls = self.url_map.bind_to_environ(request)
         endpoint, values = urls.match()
-        return getattr(self, f"on_{endpoint}")(request, urls, **values)
+        return getattr(self, f'on_{endpoint}')(request, urls, **values)
 
 class WSGIApp:
     def __init__(self):
@@ -105,13 +105,13 @@ class WSGIApp:
 def create_app():
     app = WSGIApp()
     return SharedDataMiddleware(
-        app, {"/static": os.path.join(os.path.dirname(__file__), "static")}
+        app, {'/static': os.path.join(os.path.dirname(__file__), 'static')}
     )
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     from werkzeug.serving import run_simple
 
-    run_simple("127.0.0.1", 5000,
+    run_simple('127.0.0.1', 5000,
                create_app(),
                use_debugger=True, use_reloader=True)
