@@ -39,6 +39,7 @@ class Database:
         self._context_var = ContextVar('connection')
 
         lifecycle.add_start_listener(self.initialize)
+        lifecycle.add_request_listener(success=self.commit)
 
     def initialize(self):
         try:
@@ -57,7 +58,6 @@ class Database:
     def save_project(self, project):
         s = sqlalchemy.insert(tables.projects).values(name=project.name)
         self.execute(s)
-        self.commit()
 
     def execute(self, statement, parameters=None):
         return self._connection().execute(statement, parameters)
@@ -110,12 +110,14 @@ class Web:
 
 class WSGIApp:
     def __init__(self, lifecycle):
+        self._lifecycle = lifecycle
         self._web = Web(lifecycle)
 
     def __call__(self, environ, start_response):
         request = werkzeug.Request(environ)
         try:
             response = self._web.dispatch(request)
+            self._lifecycle.request_success()
         except werkzeug.exceptions.HTTPException as e:
             return e
         return response(environ, start_response)
@@ -123,12 +125,20 @@ class WSGIApp:
 class Lifecycle:
     def __init__(self):
         self._start_listeners = []
+        self._request_success_listeners = []
 
     def add_start_listener(self, listener):
         self._start_listeners.append(listener)
 
+    def add_request_listener(self, success):
+        self._request_success_listeners.append(success)
+
     def start(self):
         for l in self._start_listeners:
+            l()
+
+    def request_success(self):
+        for l in self._request_success_listeners:
             l()
 
 def create_app():
