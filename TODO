@@ -1,6 +1,4 @@
-Probably: thread storage for database connection/transaction
 Connection per request
 Auto-tx per request
-Connection pooling
 
 Sanitize input (e.g. project names rendered raw)
