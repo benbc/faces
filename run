@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
 set -e
 
-PYTHONPATH=src .venv/bin/python -m faces
+mkdir -p tmp
+PYTHONPATH=src PYTHONPYCACHEPREFIX=tmp/pycache .venv/bin/python -m faces
