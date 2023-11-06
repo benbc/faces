@@ -75,38 +75,38 @@ class Web:
             Rule('/project', endpoint='create_project', methods=['PUT']),
         ])
 
-    def on_index(self, _request):
+    def on_index(self, _request, _urls):
         projects = self.faces.all_projects()
         return self._templates.render("projects", projects=projects)
 
-    def on_create_project(self, request):
+    def on_create_project(self, request, urls):
         name = request.form['name']
         self.faces.create_project(name)
-        return redirect(self.url_map.bind_to_environ(request.environ).build('index'))
+        return redirect(urls.build('index'))
 
-    def dispatch_request(self, request):
-        adapter = self.url_map.bind_to_environ(request.environ)
-        try:
-            endpoint, values = adapter.match()
-            return getattr(self, f"on_{endpoint}")(request, **values)
-        except HTTPException as e:
-            return e
+    def dispatch(self, request):
+        urls = self.url_map.bind_to_environ(request)
+        endpoint, values = urls.match()
+        return getattr(self, f"on_{endpoint}")(request, urls, **values)
 
-    def wsgi_app(self, environ, start_response):
-        request = Request(environ)
-        response = self.dispatch_request(request)
-        return response(environ, start_response)
+class WSGIApp:
+    def __init__(self):
+        self._web = Web()
 
     def __call__(self, environ, start_response):
-        return self.wsgi_app(environ, start_response)
+        request = Request(environ)
+        try:
+            response = self._web.dispatch(request)
+        except HTTPException as e:
+            return e
+        return response(environ, start_response)
 
 
 def create_app():
-    app = Web()
-    app.wsgi_app = SharedDataMiddleware(
-        app.wsgi_app, {"/static": os.path.join(os.path.dirname(__file__), "static")}
+    app = WSGIApp()
+    return SharedDataMiddleware(
+        app, {"/static": os.path.join(os.path.dirname(__file__), "static")}
     )
-    return app
 
 
 if __name__ == "__main__":

@@ -1,5 +1,3 @@
-Separate the WSGI-specific bits of Web from the general web logic (routing/redirects etc)
-
 Probably: thread storage for database connection/transaction
 Connection per request
 Auto-tx per request
