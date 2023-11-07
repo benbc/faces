@@ -1,5 +1,3 @@
-import os
-from contextvars import ContextVar
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
@@ -13,6 +11,8 @@ import werkzeug.exceptions
 import werkzeug.middleware.shared_data
 import werkzeug.routing
 import werkzeug.wrappers
+
+import infrastructure
 
 class Project:
     def __init__(self, name):
@@ -37,7 +37,7 @@ tables = Tables()
 
 class Repository:
     def __init__(self, lifecycle):
-        self._database = Database(lifecycle)
+        self._database = infrastructure.Database(lifecycle)
         lifecycle.add_start_listener(self.initialize)
 
     def initialize(self):
@@ -57,40 +57,6 @@ class Repository:
     def save_project(self, project):
         s = sqlalchemy.insert(tables.projects).values(name=project.name)
         self._database.execute(s)
-
-class Database:
-    def __init__(self, lifecycle):
-        self._engine = sqlalchemy.create_engine('sqlite+pysqlite:///faces.db', echo=True)
-        self._context_var = ContextVar('connection')
-
-        lifecycle.add_request_listener(success=self.commit, failure=self.rollback)
-
-    def execute(self, statement, parameters=None):
-        return self._connection().execute(statement, parameters)
-
-    def commit(self):
-        self._finalize_connection(lambda c: c.commit())
-
-    def rollback(self):
-        self._finalize_connection(lambda c: c.rollback())
-
-    def _finalize_connection(self, operation):
-        c = self._maybe_connection()
-        if not c:
-            return
-        operation(c)
-        c.close()
-        self._context_var.set(None)
-
-    def _connection(self):
-        c = self._maybe_connection()
-        if not c:
-            c = self._engine.connect()
-            self._context_var.set(c)
-        return c
-
-    def _maybe_connection(self):
-        return self._context_var.get(None)
 
 class Web:
     def __init__(self, lifecycle, template_dir):
