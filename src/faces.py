@@ -91,6 +91,51 @@ class Database:
     def _maybe_connection(self):
         return self._context_var.get(None)
 
+class Web:
+    def __init__(self, lifecycle):
+        self._faces = Faces(lifecycle)
+        self._wz_app = WZApp(
+            endpoints=self,
+            routes=[
+                WZApp.route('/', endpoint='index'),
+                WZApp.route('/project', endpoint='create_project', methods=['PUT']),
+            ],
+        )
+
+    def on_index(self, _request, _urls):
+        projects = self._faces.all_projects()
+        return self._wz_app.render('projects', projects=projects)
+
+    def on_create_project(self, request, urls):
+        name = request.form['name']
+        self._faces.create_project(name)
+        return self._wz_app.redirect(urls, 'index')
+
+    def dispatch(self, request):
+        return self._wz_app.dispatch(request)
+
+class WZApp:
+    def __init__(self, endpoints, routes):
+        self._templates = Templates()
+        self._endpoints = endpoints
+        self._url_map = werkzeug.routing.Map(routes)
+
+    @staticmethod
+    def route(route, **args):
+        return werkzeug.routing.Rule(route, **args)
+
+    def render(self, template, **context):
+        return self._templates.render(template, context)
+
+    @staticmethod
+    def redirect(urls, route):
+        return werkzeug.utils.redirect(urls.build(route))
+
+    def dispatch(self, request):
+        urls = self._url_map.bind_to_environ(request)
+        endpoint, values = urls.match()
+        return getattr(self._endpoints, f'on_{endpoint}')(request, urls, **values)
+
 class Templates:
     def __init__(self):
         template_path = os.path.join(os.path.dirname(__file__), 'templates')
@@ -99,33 +144,9 @@ class Templates:
             autoescape=True
         )
 
-    def render(self, template_name, **context):
+    def render(self, template_name, context):
         t = self._environment.get_template(f'{template_name}.jinja')
         return werkzeug.Response(t.render(context), mimetype='text/html')
-
-class Web:
-    def __init__(self, lifecycle):
-        self._faces = Faces(lifecycle)
-        self._templates = Templates()
-
-        self.url_map = werkzeug.routing.Map([
-            werkzeug.routing.Rule('/', endpoint='index'),
-            werkzeug.routing.Rule('/project', endpoint='create_project', methods=['PUT']),
-        ])
-
-    def on_index(self, _request, _urls):
-        projects = self._faces.all_projects()
-        return self._templates.render('projects', projects=projects)
-
-    def on_create_project(self, request, urls):
-        name = request.form['name']
-        self._faces.create_project(name)
-        return werkzeug.utils.redirect(urls.build('index'))
-
-    def dispatch(self, request):
-        urls = self.url_map.bind_to_environ(request)
-        endpoint, values = urls.match()
-        return getattr(self, f'on_{endpoint}')(request, urls, **values)
 
 class WSGIApp:
     def __init__(self, lifecycle):
