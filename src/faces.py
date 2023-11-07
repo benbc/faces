@@ -1,6 +1,7 @@
 import os
 from contextvars import ContextVar
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Callable
 
 import jinja2
@@ -196,15 +197,15 @@ class Lifecycle:
             l.failure()
 
 def create_app():
-    src_dir = os.path.dirname(__file__)
-    template_dir = os.path.join(src_dir, 'templates')
-    static_dir = os.path.join(src_dir, 'static')
+    src_dir = Path(__file__).parent
+    template_dir = src_dir / 'templates'
+    static_dir = src_dir / 'static'
 
     lifecycle = Lifecycle()
     app = WSGIApp(lifecycle, template_dir)
     lifecycle.start()
 
-    return werkzeug.middleware.shared_data.SharedDataMiddleware(app, {'/static': static_dir})
+    return werkzeug.middleware.shared_data.SharedDataMiddleware(app, {'/static': str(static_dir)})
 
 if __name__ == '__main__':
     werkzeug.run_simple(
