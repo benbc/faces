@@ -92,7 +92,7 @@ class Database:
         return self._context_var.get(None)
 
 class Web:
-    def __init__(self, lifecycle):
+    def __init__(self, lifecycle, template_dir):
         self._faces = Faces(lifecycle)
         self._wz_app = WZApp(
             endpoints=self,
@@ -100,6 +100,7 @@ class Web:
                 WZApp.route('/', endpoint='index'),
                 WZApp.route('/project', endpoint='create_project', methods=['PUT']),
             ],
+            template_dir=template_dir,
         )
 
     def on_index(self, _request, _urls):
@@ -115,8 +116,8 @@ class Web:
         return self._wz_app.dispatch(request)
 
 class WZApp:
-    def __init__(self, endpoints, routes):
-        self._templates = Templates()
+    def __init__(self, endpoints, routes, template_dir):
+        self._templates = Templates(template_dir)
         self._endpoints = endpoints
         self._url_map = werkzeug.routing.Map(routes)
 
@@ -137,10 +138,9 @@ class WZApp:
         return getattr(self._endpoints, f'on_{endpoint}')(request, urls, **values)
 
 class Templates:
-    def __init__(self):
-        template_path = os.path.join(os.path.dirname(__file__), 'templates')
+    def __init__(self, template_dir):
         self._environment = jinja2.Environment(
-            loader=jinja2.FileSystemLoader(template_path),
+            loader=jinja2.FileSystemLoader(template_dir),
             autoescape=True
         )
 
@@ -149,9 +149,9 @@ class Templates:
         return werkzeug.Response(t.render(context), mimetype='text/html')
 
 class WSGIApp:
-    def __init__(self, lifecycle):
+    def __init__(self, lifecycle, template_dir):
         self._lifecycle = lifecycle
-        self._web = Web(lifecycle)
+        self._web = Web(lifecycle, template_dir)
 
     def __call__(self, environ, start_response):
         request = werkzeug.Request(environ)
@@ -196,13 +196,15 @@ class Lifecycle:
             l.failure()
 
 def create_app():
+    src_dir = os.path.dirname(__file__)
+    template_dir = os.path.join(src_dir, 'templates')
+    static_dir = os.path.join(src_dir, 'static')
+
     lifecycle = Lifecycle()
-    app = WSGIApp(lifecycle)
+    app = WSGIApp(lifecycle, template_dir)
     lifecycle.start()
 
-    return werkzeug.middleware.shared_data.SharedDataMiddleware(
-        app, {'/static': os.path.join(os.path.dirname(__file__), 'static')}
-    )
+    return werkzeug.middleware.shared_data.SharedDataMiddleware(app, {'/static': static_dir})
 
 if __name__ == '__main__':
     werkzeug.run_simple(
