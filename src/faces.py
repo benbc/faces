@@ -19,14 +19,14 @@ class Project:
 
 class Faces:
     def __init__(self, lifecycle):
-        self._database = Database(lifecycle)
+        self._repository = Repository(lifecycle)
 
     def all_projects(self):
-        return self._database.all_projects()
+        return self._repository.all_projects()
 
     def create_project(self, name):
         p = Project(name)
-        self._database.save_project(p)
+        self._repository.save_project(p)
 
 @dataclass
 class Tables:
@@ -34,31 +34,35 @@ class Tables:
                                 sqlalchemy.Column('name', sqlalchemy.Text))
 tables = Tables()
 
-class Database:
+class Repository:
     def __init__(self, lifecycle):
-        self._engine = sqlalchemy.create_engine('sqlite+pysqlite:///faces.db', echo=True)
-        self._context_var = ContextVar('connection')
-
+        self._database = Database(lifecycle)
         lifecycle.add_start_listener(self.initialize)
-        lifecycle.add_request_listener(success=self.commit, failure=self.rollback)
 
     def initialize(self):
         try:
-            self.execute(sqlalchemy.select(tables.projects.c.name))
+            self._database.execute(sqlalchemy.select(tables.projects.c.name))
         except sqlalchemy.exc.OperationalError:
-            self.execute(sqlalchemy.schema.CreateTable(tables.projects))
-            self.execute(sqlalchemy.insert(tables.projects),
-                         [{'name': 'foo'}, {'name': 'bar'}])
-            self.commit()
+            self._database.execute(sqlalchemy.schema.CreateTable(tables.projects))
+            self._database.execute(sqlalchemy.insert(tables.projects),
+                                   [{'name': 'foo'}, {'name': 'bar'}])
+            self._database.commit()
 
     def all_projects(self):
-        result = self.execute(sqlalchemy.select(tables.projects.c.name))
+        result = self._database.execute(sqlalchemy.select(tables.projects.c.name))
         projects = [Project(row.name) for row in result]
         return projects
 
     def save_project(self, project):
         s = sqlalchemy.insert(tables.projects).values(name=project.name)
-        self.execute(s)
+        self._database.execute(s)
+
+class Database:
+    def __init__(self, lifecycle):
+        self._engine = sqlalchemy.create_engine('sqlite+pysqlite:///faces.db', echo=True)
+        self._context_var = ContextVar('connection')
+
+        lifecycle.add_request_listener(success=self.commit, failure=self.rollback)
 
     def execute(self, statement, parameters=None):
         return self._connection().execute(statement, parameters)
@@ -148,7 +152,6 @@ class RequestListener:
     failure: Callable
 
 class Lifecycle:
-
     def __init__(self):
         self._start_listeners = []
         self._request_listeners = []
