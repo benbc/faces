@@ -2,7 +2,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
 
-import jinja2
 import sqlalchemy
 import sqlalchemy.exc
 import sqlalchemy.schema
@@ -61,11 +60,11 @@ class Repository:
 class Web:
     def __init__(self, lifecycle, template_dir):
         self._faces = Faces(lifecycle)
-        self._wz_app = WZApp(
+        self._wz_app = infrastructure.WZApp(
             endpoints=self,
             routes=[
-                WZApp.route('/', endpoint='index'),
-                WZApp.route('/project', endpoint='create_project', methods=['PUT']),
+                infrastructure.WZApp.route('/', endpoint='index'),
+                infrastructure.WZApp.route('/project', endpoint='create_project', methods=['PUT']),
             ],
             template_dir=template_dir,
         )
@@ -81,32 +80,6 @@ class Web:
 
     def dispatch(self, request):
         return self._wz_app.dispatch(request)
-
-class WZApp:
-    def __init__(self, endpoints, routes, template_dir):
-        self._endpoints = endpoints
-        self._url_map = werkzeug.routing.Map(routes)
-        self._templates = jinja2.Environment(
-            loader=jinja2.FileSystemLoader(template_dir),
-            autoescape=True
-        )
-
-    @staticmethod
-    def route(route, **args):
-        return werkzeug.routing.Rule(route, **args)
-
-    def render(self, template, **context):
-        t = self._templates.get_template(f'{template}.jinja')
-        return werkzeug.Response(t.render(context), mimetype='text/html')
-
-    @staticmethod
-    def redirect(urls, route):
-        return werkzeug.utils.redirect(urls.build(route))
-
-    def dispatch(self, request):
-        urls = self._url_map.bind_to_environ(request)
-        endpoint, values = urls.match()
-        return getattr(self._endpoints, f'on_{endpoint}')(request, urls, **values)
 
 class WSGIApp:
     def __init__(self, lifecycle, template_dir):
