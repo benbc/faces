@@ -118,16 +118,20 @@ class Web:
 
 class WZApp:
     def __init__(self, endpoints, routes, template_dir):
-        self._templates = Templates(template_dir)
         self._endpoints = endpoints
         self._url_map = werkzeug.routing.Map(routes)
+        self._templates = jinja2.Environment(
+            loader=jinja2.FileSystemLoader(template_dir),
+            autoescape=True
+        )
 
     @staticmethod
     def route(route, **args):
         return werkzeug.routing.Rule(route, **args)
 
     def render(self, template, **context):
-        return self._templates.render(template, context)
+        t = self._templates.get_template(f'{template}.jinja')
+        return werkzeug.Response(t.render(context), mimetype='text/html')
 
     @staticmethod
     def redirect(urls, route):
@@ -137,17 +141,6 @@ class WZApp:
         urls = self._url_map.bind_to_environ(request)
         endpoint, values = urls.match()
         return getattr(self._endpoints, f'on_{endpoint}')(request, urls, **values)
-
-class Templates:
-    def __init__(self, template_dir):
-        self._environment = jinja2.Environment(
-            loader=jinja2.FileSystemLoader(template_dir),
-            autoescape=True
-        )
-
-    def render(self, template_name, context):
-        t = self._environment.get_template(f'{template_name}.jinja')
-        return werkzeug.Response(t.render(context), mimetype='text/html')
 
 class WSGIApp:
     def __init__(self, lifecycle, template_dir):
