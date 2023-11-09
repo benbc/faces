@@ -29,7 +29,7 @@ tables = Tables()
 
 class Repository:
     def __init__(self, lifecycle):
-        self._database = infrastructure.Database(lifecycle)
+        self._database = infrastructure.Database.create(lifecycle)
         lifecycle.add_start_listener(self.initialize)
 
     def initialize(self):

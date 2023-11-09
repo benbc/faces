@@ -5,11 +5,16 @@ import sqlalchemy
 import werkzeug
 
 class Database:
-    def __init__(self, lifecycle):
-        self._engine = sqlalchemy.create_engine('sqlite+pysqlite:///faces.db', echo=True)
+    def __init__(self, uri, lifecycle=None):
+        self._engine = sqlalchemy.create_engine(uri, echo=True)
         self._context_var = ContextVar('connection')
 
-        lifecycle.add_request_listener(success=self.commit, failure=self.rollback)
+        if lifecycle:
+            lifecycle.add_request_listener(success=self.commit, failure=self.rollback)
+
+    @classmethod
+    def create(cls, lifecycle):
+        return cls('sqlite+pysqlite:///faces.db', lifecycle)
 
     def execute(self, statement, parameters=None):
         return self._connection().execute(statement, parameters)
