@@ -21,7 +21,7 @@ class WSGIApp:
             response = self._web.dispatch(request)
         except werkzeug.exceptions.HTTPException as e:
             self._lifecycle.request_failure()
-            return e
+            response = e
         except Exception:
             self._lifecycle.request_failure()
             raise
