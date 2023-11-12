@@ -21,8 +21,10 @@ class Database:
         return cls('sqlite+pysqlite:///faces.db', lifecycle)
 
     @classmethod
-    def create_null(cls, configured_projects):
-        return cls('', engine=_StubEngine(configured_projects))
+    def create_null(cls, response=None):
+        if not response:
+            response = []
+        return cls('', engine=_StubEngine(response))
 
     def track_queries(self):
         return self._output_listener.create_tracker()
@@ -70,8 +72,11 @@ class _StubConnection:
         self._response = response
 
     def execute(self, statement, parameters):
-        Record = namedtuple('Record', self._response[0])
-        return [Record(**row) for row in self._response]
+        if self._response:
+            Record = namedtuple('Record', self._response[0])
+            return [Record(**row) for row in self._response]
+        else:
+            return []
 
 class WZApp:
     def __init__(self, endpoints, routes, template_dir):
@@ -118,3 +123,6 @@ class OutputTracker:
 
     def add(self, data):
         self.data.append(data)
+
+    def last(self):
+        return self.data[-1]

@@ -28,13 +28,14 @@ class Tables:
 tables = Tables()
 
 class Repository:
-    def __init__(self, lifecycle, database):
+    def __init__(self, database, lifecycle=None):
         self._database = database
-        lifecycle.add_start_listener(self.initialize)
+        if lifecycle:
+            lifecycle.add_start_listener(self.initialize)
 
     @classmethod
     def create(cls, lifecycle):
-        return cls(lifecycle, infrastructure.Database.create(lifecycle))
+        return cls(infrastructure.Database.create(lifecycle), lifecycle)
 
     def initialize(self):
         try:
