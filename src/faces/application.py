@@ -6,13 +6,13 @@ import sqlalchemy.schema
 
 from . import infrastructure
 
+@dataclass
 class Project:
-    def __init__(self, name):
-        self.name = name
+    name: str
 
 class Faces:
     def __init__(self, lifecycle):
-        self._repository = Repository(lifecycle)
+        self._repository = Repository.create(lifecycle)
 
     def all_projects(self):
         return self._repository.all_projects()
@@ -28,9 +28,13 @@ class Tables:
 tables = Tables()
 
 class Repository:
-    def __init__(self, lifecycle):
-        self._database = infrastructure.Database.create(lifecycle)
+    def __init__(self, lifecycle, database):
+        self._database = database
         lifecycle.add_start_listener(self.initialize)
+
+    @classmethod
+    def create(cls, lifecycle):
+        return cls(lifecycle, infrastructure.Database.create(lifecycle))
 
     def initialize(self):
         try:
