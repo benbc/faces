@@ -2,64 +2,106 @@ import jinja2
 import werkzeug
 import werkzeug.middleware.shared_data
 import werkzeug.routing
+import werkzeug.utils
 
 
 class Web:
     def __init__(self, app, lifecycle, root_dir):
+        routes = [
+            ('/', self.on_index),
+            ('/project', self.on_create_project, ['PUT']),
+        ]
+        statics = {'/static': root_dir / 'static'}
+
         self._app = app
+        self._server = HttpServer(lifecycle, root_dir / 'templates', routes, statics)
+
+    def on_index(self, _request):
+        projects = self._app.all_projects()
+        return self._server.render('projects', projects=projects)
+
+    def on_create_project(self, request):
+        name = request.form['name']
+        self._app.create_project(name)
+        return self._server.redirect('on_index')
+
+    def run(self):
+        self._server.run()
+
+
+class HttpServer:
+    def __init__(self, lifecycle, template_dir, routes, statics):
         self._lifecycle = lifecycle
 
-        template_dir = root_dir / 'templates'
-        self._static_dir = root_dir / 'static'
+        rules, self._functions = _convert_routes(routes)
+        self._map = werkzeug.routing.Map(rules)
+        self._urls = self._map.bind('127.0.0.1')
 
-        self._url_map = werkzeug.routing.Map([
-            werkzeug.routing.Rule('/', endpoint='index'),
-            werkzeug.routing.Rule('/project', endpoint='create_project', methods=['PUT']),
-        ])
         self._templates = jinja2.Environment(
             loader=jinja2.FileSystemLoader(template_dir),
             autoescape=True
         )
-
-    def on_index(self, _request, _urls):
-        projects = self._app.all_projects()
-        return self.render('projects', projects=projects)
-
-    def on_create_project(self, request, urls):
-        name = request.form['name']
-        self._app.create_project(name)
-        return werkzeug.utils.redirect(urls.build('index'))
+        self._statics = statics
 
     def render(self, template, **context):
         t = self._templates.get_template(f'{template}.jinja')
         return werkzeug.Response(t.render(context), mimetype='text/html')
 
-    def dispatch(self, request):
-        urls = self._url_map.bind_to_environ(request)
-        endpoint, values = urls.match()
-        return getattr(self, f'on_{endpoint}')(request, urls, **values)
+    def redirect(self, endpoint):
+        redirect = werkzeug.utils.redirect(self._urls.build(endpoint))
+        print(redirect)
+        return redirect
 
     def run(self):
-        def app(environ, start_response):
-            request = werkzeug.Request(environ)
-            try:
-                response = self.dispatch(request)
-            except werkzeug.exceptions.HTTPException as e:
-                self._lifecycle.request_failure()
-                response = e
-            except Exception:
-                self._lifecycle.request_failure()
-                raise
-            else:
-                self._lifecycle.request_success()
-            return response(environ, start_response)
+        app = self._app
 
-        app_serving_statics = werkzeug.middleware.shared_data.SharedDataMiddleware(
-            app, {'/static': str(self._static_dir)}
-        )
+        for url_path, file_path in self._statics.items():
+            app = werkzeug.middleware.shared_data.SharedDataMiddleware(
+                app, {url_path: str(file_path)}
+            )
 
         werkzeug.run_simple(
             '127.0.0.1', 5000,
-            app_serving_statics,
+            app,
             use_debugger=True, use_reloader=True
         )
+
+    def _app(self, environ, start_response):
+        request = werkzeug.Request(environ)
+        try:
+            response = self._dispatch(request)
+        except werkzeug.exceptions.HTTPException as e:
+            self._lifecycle.request_failure()
+            response = e
+        except Exception:
+            self._lifecycle.request_failure()
+            raise
+        else:
+            self._lifecycle.request_success()
+        return response(environ, start_response)
+
+    def _dispatch(self, request):
+        endpoint, values = self._map.bind_to_environ(request).match()
+        return self._functions[endpoint](request, **values)
+
+
+def _convert_routes(routes):
+    rules = []
+    functions = {}
+
+    for route in routes:
+        if len(route) == 2:
+            path, function = route
+            methods = None
+        elif len(route) == 3:
+            path, function, methods = route
+        else:
+            assert False
+
+        endpoint = function.__name__
+        assert endpoint not in functions
+        functions[endpoint] = function
+
+        rules.append(werkzeug.routing.Rule(path, endpoint=endpoint, methods=methods))
+
+    return rules, functions
