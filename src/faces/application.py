@@ -5,7 +5,7 @@ import sqlalchemy.exc
 import sqlalchemy.schema
 
 from .infrastructure.database import Database
-from .infrastructure.web import HttpServer
+from .infrastructure.http_server import HttpServer
 
 
 class App:

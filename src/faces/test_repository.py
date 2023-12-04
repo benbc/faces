@@ -2,7 +2,7 @@ import sqlalchemy
 import sqlalchemy.exc
 
 from .application import Repository, Project, tables
-from .infrastructure.web import Lifecycle
+from .infrastructure.http_server import Lifecycle
 from .infrastructure.database import Database
 
 
