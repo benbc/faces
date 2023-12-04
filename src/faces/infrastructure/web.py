@@ -5,30 +5,6 @@ import werkzeug.routing
 import werkzeug.utils
 
 
-class Web:
-    def __init__(self, app, lifecycle, root_dir):
-        routes = [
-            ('/', self.on_index),
-            ('/project', self.on_create_project, ['PUT']),
-        ]
-        statics = {'/static': root_dir / 'static'}
-
-        self._app = app
-        self._server = HttpServer(lifecycle, root_dir / 'templates', routes, statics)
-
-    def on_index(self, _request):
-        projects = self._app.all_projects()
-        return self._server.render('projects', projects=projects)
-
-    def on_create_project(self, request):
-        name = request.form['name']
-        self._app.create_project(name)
-        return self._server.redirect('on_index')
-
-    def run(self):
-        self._server.run()
-
-
 class HttpServer:
     def __init__(self, lifecycle, template_dir, routes, statics):
         self._lifecycle = lifecycle

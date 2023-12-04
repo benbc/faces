@@ -6,7 +6,7 @@ import sqlalchemy.exc
 import sqlalchemy.schema
 
 from .infrastructure.database import Database
-from .infrastructure.web import Web
+from .infrastructure.web import HttpServer
 
 
 class App:
@@ -30,11 +30,13 @@ class App:
 class Project:
     name: str
 
+
 @dataclass
 class Tables:
     projects = sqlalchemy.Table('projects', sqlalchemy.MetaData(),
                                 sqlalchemy.Column('name', sqlalchemy.Text))
 tables = Tables()
+
 
 class Repository:
     def __init__(self, database, lifecycle=None):
@@ -94,3 +96,27 @@ class Lifecycle:
     def request_failure(self):
         for l in self._request_listeners:
             l.failure()
+
+
+class Web:
+    def __init__(self, app, lifecycle, root_dir):
+        routes = [
+            ('/', self.on_index),
+            ('/project', self.on_create_project, ['PUT']),
+        ]
+        statics = {'/static': root_dir / 'static'}
+
+        self._app = app
+        self._server = HttpServer(lifecycle, root_dir / 'templates', routes, statics)
+
+    def on_index(self, _request):
+        projects = self._app.all_projects()
+        return self._server.render('projects', projects=projects)
+
+    def on_create_project(self, request):
+        name = request.form['name']
+        self._app.create_project(name)
+        return self._server.redirect('on_index')
+
+    def run(self):
+        self._server.run()
