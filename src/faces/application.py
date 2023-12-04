@@ -1,10 +1,29 @@
 from dataclasses import dataclass
+from typing import Callable
 
 import sqlalchemy
 import sqlalchemy.exc
 import sqlalchemy.schema
 
 from . import infrastructure
+from .infrastructure import Web
+
+
+class App:
+    def __init__(self):
+        self._lifecycle = Lifecycle()
+        self._repository = Repository.create(self._lifecycle)
+        self._web = Web(self, self._lifecycle)
+
+    def all_projects(self):
+        return self._repository.all_projects()
+
+    def create_project(self, name):
+        self._repository.save_project(Project(name))
+
+    def run(self):
+        self._web.run()
+
 
 @dataclass
 class Project:
@@ -44,3 +63,33 @@ class Repository:
     def save_project(self, project):
         s = sqlalchemy.insert(tables.projects).values(name=project.name)
         self._database.execute(s)
+
+
+@dataclass
+class RequestListener:
+    success: Callable
+    failure: Callable
+
+
+class Lifecycle:
+    def __init__(self):
+        self._start_listeners = []
+        self._request_listeners = []
+
+    def add_start_listener(self, listener):
+        self._start_listeners.append(listener)
+
+    def add_request_listener(self, success, failure):
+        self._request_listeners.append(RequestListener(success, failure))
+
+    def start(self):
+        for l in self._start_listeners:
+            l()
+
+    def request_success(self):
+        for l in self._request_listeners:
+            l.success()
+
+    def request_failure(self):
+        for l in self._request_listeners:
+            l.failure()
