@@ -10,17 +10,6 @@ from . import infrastructure
 class Project:
     name: str
 
-class Faces:
-    def __init__(self, lifecycle):
-        self._repository = Repository.create(lifecycle)
-
-    def all_projects(self):
-        return self._repository.all_projects()
-
-    def create_project(self, name):
-        p = Project(name)
-        self._repository.save_project(p)
-
 @dataclass
 class Tables:
     projects = sqlalchemy.Table('projects', sqlalchemy.MetaData(),
@@ -55,27 +44,3 @@ class Repository:
     def save_project(self, project):
         s = sqlalchemy.insert(tables.projects).values(name=project.name)
         self._database.execute(s)
-
-class Web:
-    def __init__(self, lifecycle, template_dir):
-        self._faces = Faces(lifecycle)
-        self._wz_app = infrastructure.WZApp(
-            endpoints=self,
-            routes=[
-                infrastructure.WZApp.route('/', endpoint='index'),
-                infrastructure.WZApp.route('/project', endpoint='create_project', methods=['PUT']),
-            ],
-            template_dir=template_dir,
-        )
-
-    def on_index(self, _request, _urls):
-        projects = self._faces.all_projects()
-        return self._wz_app.render('projects', projects=projects)
-
-    def on_create_project(self, request, urls):
-        name = request.form['name']
-        self._faces.create_project(name)
-        return self._wz_app.redirect(urls, 'index')
-
-    def dispatch(self, request):
-        return self._wz_app.dispatch(request)

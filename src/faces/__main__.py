@@ -2,32 +2,15 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
 
+import jinja2
 import werkzeug
 import werkzeug.exceptions
 import werkzeug.middleware.shared_data
 import werkzeug.routing
 import werkzeug.wrappers
 
-from . import application
+from faces.application import Repository, Project
 
-class WSGIApp:
-    def __init__(self, lifecycle, template_dir):
-        self._lifecycle = lifecycle
-        self._web = application.Web(lifecycle, template_dir)
-
-    def __call__(self, environ, start_response):
-        request = werkzeug.Request(environ)
-        try:
-            response = self._web.dispatch(request)
-        except werkzeug.exceptions.HTTPException as e:
-            self._lifecycle.request_failure()
-            response = e
-        except Exception:
-            self._lifecycle.request_failure()
-            raise
-        else:
-            self._lifecycle.request_success()
-        return response(environ, start_response)
 
 @dataclass
 class RequestListener:
@@ -57,20 +40,66 @@ class Lifecycle:
         for l in self._request_listeners:
             l.failure()
 
-def create_app():
+class App:
+    def __init__(self, lifecycle, template_dir):
+        self._repository = Repository.create(lifecycle)
+        self._url_map = werkzeug.routing.Map([
+            werkzeug.routing.Rule('/', endpoint='index'),
+            werkzeug.routing.Rule('/project', endpoint='create_project', methods=['PUT']),
+        ])
+        self._templates = jinja2.Environment(
+            loader=jinja2.FileSystemLoader(template_dir),
+            autoescape=True
+        )
+
+    def on_index(self, _request, _urls):
+        projects = self._repository.all_projects()
+        return self.render('projects', projects=projects)
+
+    def on_create_project(self, request, urls):
+        name = request.form['name']
+        p = Project(name)
+        self._repository.save_project(p)
+        return werkzeug.utils.redirect(urls.build('index'))
+
+    def render(self, template, **context):
+        t = self._templates.get_template(f'{template}.jinja')
+        return werkzeug.Response(t.render(context), mimetype='text/html')
+
+    def dispatch(self, request):
+        urls = self._url_map.bind_to_environ(request)
+        endpoint, values = urls.match()
+        return getattr(self, f'on_{endpoint}')(request, urls, **values)
+
+
+if __name__ == '__main__':
     src_dir = Path(__file__).parent.parent
     template_dir = src_dir / 'templates'
     static_dir = src_dir / 'static'
 
     lifecycle = Lifecycle()
-    app = WSGIApp(lifecycle, template_dir)
+    
+    web = App(lifecycle, template_dir)
     lifecycle.start()
 
-    return werkzeug.middleware.shared_data.SharedDataMiddleware(app, {'/static': str(static_dir)})
+    def app(environ, start_response):
+        request = werkzeug.Request(environ)
+        try:
+            response = web.dispatch(request)
+        except werkzeug.exceptions.HTTPException as e:
+            lifecycle.request_failure()
+            response = e
+        except Exception:
+            lifecycle.request_failure()
+            raise
+        else:
+            lifecycle.request_success()
+        return response(environ, start_response)
 
-if __name__ == '__main__':
+    app_serving_statics = werkzeug.middleware.shared_data.SharedDataMiddleware(app, {'/static': str(static_dir)})
+
     werkzeug.run_simple(
         '127.0.0.1', 5000,
-        create_app(),
+        app_serving_statics,
         use_debugger=True, use_reloader=True
     )

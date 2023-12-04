@@ -1,9 +1,7 @@
 from collections import namedtuple
 from contextvars import ContextVar
 
-import jinja2
 import sqlalchemy
-import werkzeug
 
 
 class Database:
@@ -84,31 +82,6 @@ class _StubConnection:
     def close(self):
         pass
 
-class WZApp:
-    def __init__(self, endpoints, routes, template_dir):
-        self._endpoints = endpoints
-        self._url_map = werkzeug.routing.Map(routes)
-        self._templates = jinja2.Environment(
-            loader=jinja2.FileSystemLoader(template_dir),
-            autoescape=True
-        )
-
-    @staticmethod
-    def route(route, **args):
-        return werkzeug.routing.Rule(route, **args)
-
-    def render(self, template, **context):
-        t = self._templates.get_template(f'{template}.jinja')
-        return werkzeug.Response(t.render(context), mimetype='text/html')
-
-    @staticmethod
-    def redirect(urls, route):
-        return werkzeug.utils.redirect(urls.build(route))
-
-    def dispatch(self, request):
-        urls = self._url_map.bind_to_environ(request)
-        endpoint, values = urls.match()
-        return getattr(self._endpoints, f'on_{endpoint}')(request, urls, **values)
 
 class OutputTracker:
     def __init__(self):
