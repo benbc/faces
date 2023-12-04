@@ -3,7 +3,7 @@ import threading
 import sqlalchemy
 from sqlalchemy import Text, Table, MetaData, Column
 
-from ..application import Lifecycle
+from .web import Lifecycle
 from .database import Database
 
 def make_table(db, column):

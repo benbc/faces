@@ -1,7 +1,8 @@
 import sqlalchemy
 import sqlalchemy.exc
 
-from .application import Repository, Project, tables, Lifecycle
+from .application import Repository, Project, tables
+from .infrastructure.web import Lifecycle
 from .infrastructure.database import Database
 
 

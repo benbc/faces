@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from typing import Callable
 
 import sqlalchemy
 import sqlalchemy.exc
@@ -11,9 +10,8 @@ from .infrastructure.web import HttpServer
 
 class App:
     def __init__(self, root_dir):
-        self._lifecycle = Lifecycle()
-        self._repository = Repository.create(self._lifecycle)
-        self._web = Web(self, self._lifecycle, root_dir)
+        self._web = Web(self, root_dir)
+        self._repository = Repository.create(self._web.lifecycle())
 
     def all_projects(self):
         return self._repository.all_projects()
@@ -22,7 +20,6 @@ class App:
         self._repository.save_project(Project(name))
 
     def run(self):
-        self._lifecycle.start()
         self._web.run()
 
 
@@ -68,38 +65,8 @@ class Repository:
         self._database.execute(s)
 
 
-@dataclass
-class RequestListener:
-    success: Callable
-    failure: Callable
-
-
-class Lifecycle:
-    def __init__(self):
-        self._start_listeners = []
-        self._request_listeners = []
-
-    def add_start_listener(self, listener):
-        self._start_listeners.append(listener)
-
-    def add_request_listener(self, success, failure):
-        self._request_listeners.append(RequestListener(success, failure))
-
-    def start(self):
-        for l in self._start_listeners:
-            l()
-
-    def request_success(self):
-        for l in self._request_listeners:
-            l.success()
-
-    def request_failure(self):
-        for l in self._request_listeners:
-            l.failure()
-
-
 class Web:
-    def __init__(self, app, lifecycle, root_dir):
+    def __init__(self, app, root_dir):
         routes = [
             ('/', self.on_index),
             ('/project', self.on_create_project, ['PUT']),
@@ -107,7 +74,7 @@ class Web:
         statics = {'/static': root_dir / 'static'}
 
         self._app = app
-        self._server = HttpServer(lifecycle, root_dir / 'templates', routes, statics)
+        self._server = HttpServer(root_dir / 'templates', routes, statics)
 
     def on_index(self, _request):
         projects = self._app.all_projects()
@@ -120,3 +87,6 @@ class Web:
 
     def run(self):
         self._server.run()
+
+    def lifecycle(self):
+        return self._server.lifecycle

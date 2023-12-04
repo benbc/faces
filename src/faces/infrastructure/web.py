@@ -1,3 +1,6 @@
+from dataclasses import dataclass
+from typing import Callable
+
 import jinja2
 import werkzeug
 import werkzeug.middleware.shared_data
@@ -6,8 +9,8 @@ import werkzeug.utils
 
 
 class HttpServer:
-    def __init__(self, lifecycle, template_dir, routes, statics):
-        self._lifecycle = lifecycle
+    def __init__(self, template_dir, routes, statics):
+        self.lifecycle = Lifecycle()
 
         rules, self._functions = _convert_routes(routes)
         self._map = werkzeug.routing.Map(rules)
@@ -36,6 +39,7 @@ class HttpServer:
                 app, {url_path: str(file_path)}
             )
 
+        self.lifecycle.start()
         werkzeug.run_simple(
             '127.0.0.1', 5000,
             app,
@@ -47,13 +51,13 @@ class HttpServer:
         try:
             response = self._dispatch(request)
         except werkzeug.exceptions.HTTPException as e:
-            self._lifecycle.request_failure()
+            self.lifecycle.request_failure()
             response = e
         except Exception:
-            self._lifecycle.request_failure()
+            self.lifecycle.request_failure()
             raise
         else:
-            self._lifecycle.request_success()
+            self.lifecycle.request_success()
         return response(environ, start_response)
 
     def _dispatch(self, request):
@@ -81,3 +85,33 @@ def _convert_routes(routes):
         rules.append(werkzeug.routing.Rule(path, endpoint=endpoint, methods=methods))
 
     return rules, functions
+
+
+class Lifecycle:
+    def __init__(self):
+        self._start_listeners = []
+        self._request_listeners = []
+
+    def add_start_listener(self, listener):
+        self._start_listeners.append(listener)
+
+    def add_request_listener(self, success, failure):
+        self._request_listeners.append(_RequestListener(success, failure))
+
+    def start(self):
+        for l in self._start_listeners:
+            l()
+
+    def request_success(self):
+        for l in self._request_listeners:
+            l.success()
+
+    def request_failure(self):
+        for l in self._request_listeners:
+            l.failure()
+
+
+@dataclass
+class _RequestListener:
+    success: Callable
+    failure: Callable
