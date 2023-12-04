@@ -1,25 +1,34 @@
 from dataclasses import dataclass
+from typing import Callable
 
 import sqlalchemy
 import sqlalchemy.exc
 import sqlalchemy.schema
 
 from . import infrastructure
+from .infrastructure import Web
 
-@dataclass
-class Project:
-    name: str
 
-class Faces:
-    def __init__(self, lifecycle):
-        self._repository = Repository.create(lifecycle)
+class App:
+    def __init__(self):
+        self._lifecycle = Lifecycle()
+        self._repository = Repository.create(self._lifecycle)
+        self._web = Web(self, self._lifecycle)
 
     def all_projects(self):
         return self._repository.all_projects()
 
     def create_project(self, name):
-        p = Project(name)
-        self._repository.save_project(p)
+        self._repository.save_project(Project(name))
+
+    def run(self):
+        self._lifecycle.start()
+        self._web.run()
+
+
+@dataclass
+class Project:
+    name: str
 
 @dataclass
 class Tables:
@@ -56,26 +65,32 @@ class Repository:
         s = sqlalchemy.insert(tables.projects).values(name=project.name)
         self._database.execute(s)
 
-class Web:
-    def __init__(self, lifecycle, template_dir):
-        self._faces = Faces(lifecycle)
-        self._wz_app = infrastructure.WZApp(
-            endpoints=self,
-            routes=[
-                infrastructure.WZApp.route('/', endpoint='index'),
-                infrastructure.WZApp.route('/project', endpoint='create_project', methods=['PUT']),
-            ],
-            template_dir=template_dir,
-        )
 
-    def on_index(self, _request, _urls):
-        projects = self._faces.all_projects()
-        return self._wz_app.render('projects', projects=projects)
+@dataclass
+class RequestListener:
+    success: Callable
+    failure: Callable
 
-    def on_create_project(self, request, urls):
-        name = request.form['name']
-        self._faces.create_project(name)
-        return self._wz_app.redirect(urls, 'index')
 
-    def dispatch(self, request):
-        return self._wz_app.dispatch(request)
+class Lifecycle:
+    def __init__(self):
+        self._start_listeners = []
+        self._request_listeners = []
+
+    def add_start_listener(self, listener):
+        self._start_listeners.append(listener)
+
+    def add_request_listener(self, success, failure):
+        self._request_listeners.append(RequestListener(success, failure))
+
+    def start(self):
+        for l in self._start_listeners:
+            l()
+
+    def request_success(self):
+        for l in self._request_listeners:
+            l.success()
+
+    def request_failure(self):
+        for l in self._request_listeners:
+            l.failure()

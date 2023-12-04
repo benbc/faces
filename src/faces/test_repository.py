@@ -1,8 +1,7 @@
 import sqlalchemy
 import sqlalchemy.exc
 
-from faces.__main__ import Lifecycle
-from faces.application import Repository, Project, tables
+from faces.application import Repository, Project, tables, Lifecycle
 from faces.infrastructure import Database
 
 
