@@ -22,6 +22,7 @@ class App:
         self._repository.save_project(Project(name))
 
     def run(self):
+        self._lifecycle.start()
         self._web.run()
 
 
