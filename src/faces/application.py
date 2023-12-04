@@ -5,15 +5,15 @@ import sqlalchemy
 import sqlalchemy.exc
 import sqlalchemy.schema
 
-from . import infrastructure
-from .infrastructure import Web
+from .infrastructure.database import Database
+from .infrastructure.web import Web
 
 
 class App:
-    def __init__(self):
+    def __init__(self, root_dir):
         self._lifecycle = Lifecycle()
         self._repository = Repository.create(self._lifecycle)
-        self._web = Web(self, self._lifecycle)
+        self._web = Web(self, self._lifecycle, root_dir)
 
     def all_projects(self):
         return self._repository.all_projects()
@@ -44,7 +44,7 @@ class Repository:
 
     @classmethod
     def create(cls, lifecycle):
-        return cls(infrastructure.Database.create(lifecycle), lifecycle)
+        return cls(Database.create(lifecycle), lifecycle)
 
     def initialize(self):
         try:

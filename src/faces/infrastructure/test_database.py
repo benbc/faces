@@ -3,8 +3,8 @@ import threading
 import sqlalchemy
 from sqlalchemy import Text, Table, MetaData, Column
 
-from faces.application import Lifecycle
-from faces.infrastructure import Database
+from ..application import Lifecycle
+from .database import Database
 
 def make_table(db, column):
     table = Table('the_table', MetaData(), Column(column, Text))

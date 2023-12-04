@@ -1,8 +1,8 @@
 import sqlalchemy
 import sqlalchemy.exc
 
-from faces.application import Repository, Project, tables, Lifecycle
-from faces.infrastructure import Database
+from .application import Repository, Project, tables, Lifecycle
+from .infrastructure.database import Database
 
 
 def test_returns_all_projects():
