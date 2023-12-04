@@ -42,8 +42,9 @@ class Repository:
             self._database.execute(sqlalchemy.select(tables.projects.c.name))
         except sqlalchemy.exc.OperationalError:
             self._database.execute(sqlalchemy.schema.CreateTable(tables.projects))
-            self._database.execute(sqlalchemy.insert(tables.projects),
-                                   [{'name': 'foo'}, {'name': 'bar'}])
+            self._database.execute(
+                sqlalchemy.insert(tables.projects).values([{'name': 'foo'}, {'name': 'bar'}])
+            )
             self._database.commit()
 
     def all_projects(self):

@@ -14,23 +14,20 @@ class Database:
         if lifecycle:
             lifecycle.add_request_listener(success=self.commit, failure=self.rollback)
 
-        self._output_listener = OutputListener()
+        self.query_tracker = OutputTracker()
 
     @classmethod
     def create(cls, lifecycle):
         return cls('sqlite+pysqlite:///faces.db', lifecycle)
 
     @classmethod
-    def create_null(cls, response=None):
-        if not response:
-            response = []
-        return cls('', engine=_StubEngine(response))
-
-    def track_queries(self):
-        return self._output_listener.create_tracker()
+    def create_null(cls, responses=None):
+        if not responses:
+            responses = [[]]
+        return cls('', engine=_StubEngine(responses))
 
     def execute(self, statement, parameters=None):
-        self._output_listener.track(statement)
+        self.query_tracker.add(statement)
         return self._connection().execute(statement, parameters)
 
     def commit(self):
@@ -46,6 +43,7 @@ class Database:
         operation(c)
         c.close()
         self._context_var.set(None)
+        self.query_tracker.end_batch()
 
     def _connection(self):
         c = self._maybe_connection()
@@ -58,25 +56,33 @@ class Database:
         return self._context_var.get(None)
 
 class _StubEngine:
-    def __init__(self, response):
-        self._response = response
+    def __init__(self, responses):
+        self._responses = responses
 
     def __call__(self, _uri, **kwargs):
         return self
 
     def connect(self):
-        return _StubConnection(self._response)
+        return _StubConnection(self._responses)
 
 class _StubConnection:
-    def __init__(self, response):
-        self._response = response
+    def __init__(self, responses):
+        self._responses = responses
 
     def execute(self, statement, parameters):
-        if self._response:
-            Record = namedtuple('Record', self._response[0])
-            return [Record(**row) for row in self._response]
-        else:
-            return []
+        response = self._responses.pop(0)
+        if isinstance(response, BaseException):
+            raise response
+        if response:
+            Record = namedtuple('Record', response[0])
+            return [Record(**row) for row in response]
+        return []
+
+    def commit(self):
+        pass
+
+    def close(self):
+        pass
 
 class WZApp:
     def __init__(self, endpoints, routes, template_dir):
@@ -104,25 +110,23 @@ class WZApp:
         endpoint, values = urls.match()
         return getattr(self._endpoints, f'on_{endpoint}')(request, urls, **values)
 
-class OutputListener:
-    def __init__(self):
-        self._trackers = []
-
-    def create_tracker(self):
-        t = OutputTracker()
-        self._trackers.append(t)
-        return t
-
-    def track(self, data):
-        for t in self._trackers:
-            t.add(data)
-
 class OutputTracker:
     def __init__(self):
-        self.data = []
+        self._current_batch = []
+        self._batches = []
+
+    def end_batch(self):
+        self._batches.append(self._current_batch)
+        self._current_batch = []
 
     def add(self, data):
-        self.data.append(data)
+        self._current_batch.append(data)
 
-    def last(self):
-        return self.data[-1]
+    def last_output(self):
+        return self.all_outputs()[-1]
+
+    def all_outputs(self):
+        return sum(self._batches, []) + self._current_batch
+
+    def last_batch(self):
+        return self._batches[-1]
