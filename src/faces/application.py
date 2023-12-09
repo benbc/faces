@@ -10,7 +10,7 @@ from .infrastructure.http_server import HttpServer
 
 class App:
     def __init__(self, root_dir):
-        self._web = Web(self, root_dir)
+        self._web = Web.create(self, root_dir)
         self._repository = Repository.create(self._web.lifecycle())
 
     def all_projects(self):
@@ -66,15 +66,22 @@ class Repository:
 
 
 class Web:
-    def __init__(self, app, root_dir):
-        routes = [
-            ('/', self.on_index),
-            ('/project', self.on_create_project, ['PUT']),
-        ]
-        statics = {'/static': root_dir / 'static'}
-
+    def __init__(self, server, app, root_dir):
         self._app = app
-        self._server = HttpServer(root_dir / 'templates', routes, statics)
+        self._server = server
+
+        self._server.configure(
+            routes=[
+                ('/', self.on_index),
+                ('/project', self.on_create_project, ['PUT']),
+            ],
+            statics={'/static': root_dir / 'static'},
+            templates=(root_dir / 'templates')
+        )
+
+    @classmethod
+    def create(cls, app, root_dir):
+        return cls(HttpServer.create(), app, root_dir)
 
     def on_index(self, _request):
         projects = self._app.all_projects()

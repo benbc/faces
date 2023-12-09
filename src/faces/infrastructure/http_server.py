@@ -9,15 +9,19 @@ import werkzeug.utils
 
 
 class HttpServer:
-    def __init__(self, template_dir, routes, statics):
+    def __init__(self):
         self.lifecycle = Lifecycle()
 
+    @classmethod
+    def create(cls):
+        return cls()
+
+    def configure(self, routes, statics, templates):
         rules, self._functions = _convert_routes(routes)
         self._map = werkzeug.routing.Map(rules)
         self._urls = self._map.bind('127.0.0.1')
-
         self._templates = jinja2.Environment(
-            loader=jinja2.FileSystemLoader(template_dir),
+            loader=jinja2.FileSystemLoader(templates),
             autoescape=True
         )
         self._statics = statics
