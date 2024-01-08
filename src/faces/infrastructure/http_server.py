@@ -33,9 +33,7 @@ class HttpServer:
         return werkzeug.Response(t.render(context), mimetype='text/html')
 
     def redirect(self, endpoint):
-        redirect = werkzeug.utils.redirect(self._urls.build(endpoint))
-        print(redirect)
-        return redirect
+        return werkzeug.utils.redirect(self._urls.build(endpoint), 303)
 
     def run(self, controllable=False):
         host, port = '127.0.0.1', 5000
@@ -81,13 +79,7 @@ def _convert_routes(routes):
     functions = {}
 
     for route in routes:
-        if len(route) == 2:
-            path, function = route
-            methods = None
-        elif len(route) == 3:
-            path, function, methods = route
-        else:
-            assert False
+        path, function, methods = route
 
         endpoint = function.__name__
         assert endpoint not in functions

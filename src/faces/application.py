@@ -72,7 +72,7 @@ class Web:
 
         self._server.configure(
             routes=[
-                ('/', self.on_index),
+                ('/', self.on_index, ['GET']),
                 ('/project', self.on_create_project, ['PUT']),
             ],
             statics={'/static': root_dir / 'static'},
