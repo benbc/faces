@@ -9,18 +9,18 @@ from .infrastructure.http_server import HttpServer
 
 
 class App:
-    def __init__(self, root_dir):
-        self._web = Web.create(self, root_dir)
-        self._repository = Repository.create(self._web.lifecycle())
+    def __init__(self, repository):
+        self._repository = repository
+
+    @classmethod
+    def create(cls, lifecycle):
+        return cls(Repository.create(lifecycle))
 
     def all_projects(self):
         return self._repository.all_projects()
 
     def create_project(self, name):
         self._repository.save_project(Project(name))
-
-    def run(self):
-        self._web.run()
 
 
 @dataclass
@@ -80,8 +80,10 @@ class Web:
         )
 
     @classmethod
-    def create(cls, app, root_dir):
-        return cls(HttpServer.create(), app, root_dir)
+    def create(cls, root_dir):
+        server = HttpServer.create()
+        app = App.create(server.lifecycle)
+        return cls(server, app, root_dir)
 
     def on_index(self, _request):
         projects = self._app.all_projects()
@@ -94,6 +96,3 @@ class Web:
 
     def run(self):
         self._server.run()
-
-    def lifecycle(self):
-        return self._server.lifecycle
