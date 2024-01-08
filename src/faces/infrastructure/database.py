@@ -72,6 +72,17 @@ class _StubConnection:
         self._responses = responses
 
     def execute(self, statement, parameters):
+        if isinstance(self._responses, dict):
+            query = str(statement).lower()
+            for key, response in self._responses.items():
+                if key.lower() in query:
+                    if response:
+                        Record = namedtuple('Record', response[0])
+                        return [Record(**row) for row in response]
+                    else:
+                        return []
+            raise KeyError(query)
+
         response = self._responses.pop(0)
         if isinstance(response, BaseException):
             raise response

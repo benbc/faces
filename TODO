@@ -1,1 +1,2 @@
 Sanitize input (e.g. project names rendered raw)
+Convert web stack to use declarative response descriptions rather than calls to methods on HttpServer

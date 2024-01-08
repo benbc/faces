@@ -6,21 +6,29 @@ import sqlalchemy.schema
 
 from .infrastructure.database import Database
 from .infrastructure.http_server import HttpServer
+from .infrastructure.support import OutputTracker
 
 
 class App:
     def __init__(self, repository):
         self._repository = repository
+        self.output_tracker = OutputTracker()
 
     @classmethod
     def create(cls, lifecycle):
         return cls(Repository.create(lifecycle))
 
+    @classmethod
+    def create_null(cls, projects=None):
+        return cls(Repository.create_null(projects=projects))
+
     def all_projects(self):
         return self._repository.all_projects()
 
     def create_project(self, name):
-        self._repository.save_project(Project(name))
+        project = Project(name)
+        self._repository.save_project(project)
+        self.output_tracker.add(project)
 
 
 @dataclass
@@ -44,6 +52,12 @@ class Repository:
     @classmethod
     def create(cls, lifecycle):
         return cls(Database.create(lifecycle), lifecycle)
+
+    @classmethod
+    def create_null(cls, projects=None):
+        projects = projects or []
+        data = [{'name': project.name} for project in projects]
+        return cls(Database.create_null(responses={'select': data, 'insert': []}))
 
     def initialize(self):
         try:

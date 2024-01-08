@@ -1,3 +1,4 @@
 /.venv/
 /faces.db
 /tmp
+__pycache__
