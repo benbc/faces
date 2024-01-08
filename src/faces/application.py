@@ -16,6 +16,10 @@ class App:
     def create(cls, lifecycle):
         return cls(Repository.create(lifecycle))
 
+    @classmethod
+    def create_null(cls):
+        return cls(Repository.create_null())
+
     def all_projects(self):
         return self._repository.all_projects()
 
@@ -44,6 +48,10 @@ class Repository:
     @classmethod
     def create(cls, lifecycle):
         return cls(Database.create(lifecycle), lifecycle)
+
+    @classmethod
+    def create_null(cls):
+        return cls(Database.create_null())
 
     def initialize(self):
         try:
