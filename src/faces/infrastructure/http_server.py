@@ -3,8 +3,10 @@ from typing import Callable
 
 import jinja2
 import werkzeug
+import werkzeug.debug
 import werkzeug.middleware.shared_data
 import werkzeug.routing
+import werkzeug.serving
 import werkzeug.utils
 
 
@@ -35,20 +37,25 @@ class HttpServer:
         print(redirect)
         return redirect
 
-    def run(self):
-        app = self._app
+    def run(self, controllable=False):
+        host, port = '127.0.0.1', 5000
 
+        app = self._app
         for url_path, file_path in self._statics.items():
             app = werkzeug.middleware.shared_data.SharedDataMiddleware(
                 app, {url_path: str(file_path)}
             )
 
         self.lifecycle.start()
-        werkzeug.run_simple(
-            '127.0.0.1', 5000,
-            app,
-            use_debugger=True, use_reloader=True
-        )
+
+        if controllable:
+            return werkzeug.serving.make_server(host, port, werkzeug.debug.DebuggedApplication(app))
+        else:
+            werkzeug.run_simple(
+                host, port,
+                app,
+                use_debugger=True, use_reloader=True
+            )
 
     def _app(self, environ, start_response):
         request = werkzeug.Request(environ)
