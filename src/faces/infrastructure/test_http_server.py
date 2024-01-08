@@ -13,7 +13,7 @@ def test_serve_a_string():
     def index(_request):
         return werkzeug.Response('fish')
 
-    http_server.configure([('/', index)], {}, '')
+    http_server.configure([('/', index, ['GET'])], {}, '')
 
     with running_server(http_server):
         status, body = get('/')
@@ -40,7 +40,7 @@ def test_serve_a_template(tmp_path):
         return http_server.render('a_file', thing='fish')
 
     (tmp_path / 'a_file.jinja').write_text('{{thing}}')
-    http_server.configure([('/a_file', a_file)], {}, tmp_path)
+    http_server.configure([('/a_file', a_file, ['GET'])], {}, tmp_path)
 
     with running_server(http_server):
         status, body = get('/a_file')
