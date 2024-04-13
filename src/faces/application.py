@@ -48,6 +48,7 @@ class Repository:
         self._database = database
         if lifecycle:
             lifecycle.add_start_listener(self.initialize)
+        self.output_tracker = OutputTracker()
 
     @classmethod
     def create(cls, lifecycle):
@@ -77,6 +78,7 @@ class Repository:
     def save_project(self, project):
         s = sqlalchemy.insert(tables.projects).values(name=project.name)
         self._database.execute(s)
+        self.output_tracker.add(project)
 
 
 class Web:
