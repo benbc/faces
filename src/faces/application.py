@@ -57,7 +57,7 @@ class Repository:
     def create_null(cls, projects=None):
         projects = projects or []
         data = [{'name': project.name} for project in projects]
-        return cls(Database.create_null(responses={'select': data, 'insert': []}))
+        return cls(Database.create_null(response=data))
 
     def initialize(self):
         try:

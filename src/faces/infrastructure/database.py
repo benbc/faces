@@ -21,10 +21,8 @@ class Database:
         return cls('sqlite+pysqlite:///faces.db', lifecycle)
 
     @classmethod
-    def create_null(cls, responses=None):
-        if not responses:
-            responses = [[]]
-        return cls('', engine=_StubEngine(responses))
+    def create_null(cls, **response_spec):
+        return cls('', engine=_StubEngine(response_spec))
 
     def execute(self, statement, parameters=None):
         self.query_tracker.add(statement)
@@ -57,35 +55,38 @@ class Database:
 
 
 class _StubEngine:
-    def __init__(self, responses):
-        self._responses = responses
+    def __init__(self, response_spec):
+        self._response_spec = response_spec
 
     def __call__(self, _uri, **kwargs):
         return self
 
     def connect(self):
-        return _StubConnection(self._responses)
+        return _StubConnection(self._response_spec)
 
 
 class _StubConnection:
-    def __init__(self, responses):
-        self._responses = responses
+    def __init__(self, response_spec):
+        self._response_spec = response_spec
 
     def execute(self, statement, parameters):
-        if isinstance(self._responses, dict):
-            query = str(statement).lower()
-            for key, response in self._responses.items():
-                if key.lower() in query:
-                    if response:
-                        Record = namedtuple('Record', response[0])
-                        return [Record(**row) for row in response]
-                    else:
-                        return []
-            raise KeyError(query)
+        query = str(statement).lower().strip()
 
-        response = self._responses.pop(0)
-        if isinstance(response, BaseException):
-            raise response
+        if query.startswith('insert'):
+            return []
+        if query.startswith('create'):
+            return []
+
+        assert len(self._response_spec) == 1
+        if 'error' in self._response_spec:
+            raise self._response_spec['error']
+        elif 'response' in self._response_spec:
+            response = self._response_spec['response']
+        elif 'responses' in self._response_spec:
+            response = self._response_spec['responses'].pop(0)
+        else:
+            assert False
+
         if response:
             Record = namedtuple('Record', response[0])
             return [Record(**row) for row in response]

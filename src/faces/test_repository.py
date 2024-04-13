@@ -7,7 +7,7 @@ from .infrastructure.database import Database
 
 
 def test_returns_all_projects():
-    database = Database.create_null([[{'name': 'one'}, {'name': 'two'}]])
+    database = Database.create_null(response=[{'name': 'one'}, {'name': 'two'}])
     projects = Repository(database).all_projects()
 
     assert_queries(database.query_tracker.last_output(), sqlalchemy.select(tables.projects.c.name))
@@ -22,7 +22,7 @@ def test_saves_a_project():
 
 
 def test_checks_whether_project_table_exists_on_startup():
-    database = Database.create_null()
+    database = Database.create_null(response=[])
 
     lifecycle = Lifecycle()
     Repository(database, lifecycle)
@@ -32,7 +32,7 @@ def test_checks_whether_project_table_exists_on_startup():
 
 
 def test_ensures_that_project_table_exists_on_startup():
-    database = Database.create_null([sqlalchemy.exc.OperationalError(None, None, None), [], []])
+    database = Database.create_null(error=sqlalchemy.exc.OperationalError(None, None, None))
     lifecycle = Lifecycle()
     Repository(database, lifecycle)
     lifecycle.start()
